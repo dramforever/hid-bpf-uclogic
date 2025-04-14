@@ -1,22 +1,66 @@
 // SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
+/*
+
+Usage:
+
+```c
+#define DESCRIPTOR_FILE "uclogic_v2.in.h"
+#define DESCRIPTOR_NAME rdesc_uclogic_v2
+#include "mk_template.h"
+
+// DESCRIPTOR_FILE and DESCRIPTOR_NAME are #undef'd for convenience
+```
+
+Given a template.in.h like this:
+
+```c
+DescriptorTemplate( 1, 2, 3, FIELD(__u32, value), 4, 5, )
+```
+
+We include this file twice, each time with different macros, to get:
+
+```c
+struct template {
+	__u8 _bytes[sizeof (__u8[]){ 1, 2, 3, }];
+	__u32 value;
+	__u8 _bytes_after_value[sizeof (__u8[]){ 4, 5, }];
+} __attribute__((packed)) template = {
+	._bytes = { 1, 2, 3, },
+	.value = (__u32)-1, // Placeholder value
+	._bytes_after_value = { 4, 5, }
+};
+```
+
+To use this template:
+
+```c
+struct template foo = template;
+foo.value = 42;
+
+// Copy to some buffer
+memcpy(buf, &foo, sizeof(foo));
+```
+
+*/
+
 #define DescriptorTemplate_begin \
-        static const struct DESCRIPTOR_NAME { \
-                __u8 _bytes[sizeof (__u8[]){
+	static const struct DESCRIPTOR_NAME { \
+		__u8 _bytes[sizeof (__u8[]){
 
 #define FIELD(_type, _name) \
-                }]; \
-                _type _name; \
-                __u8 _bytes_after_##_name[sizeof (__u8[]){
+		}]; \
+		_type _name; \
+		__u8 _bytes_after_##_name[sizeof (__u8[]){
 
 #define DescriptorTemplate_end \
-                }]; \
-        } __attribute__((packed)) DESCRIPTOR_NAME =
+		}]; \
+	} __attribute__((packed)) DESCRIPTOR_NAME =
 
 #define DescriptorTemplate(...) \
-        DescriptorTemplate_begin \
-        __VA_ARGS__ \
-        DescriptorTemplate_end
+	DescriptorTemplate_begin \
+	__VA_ARGS__ \
+	DescriptorTemplate_end
 
 #include DESCRIPTOR_FILE
 
@@ -27,9 +71,9 @@
 #undef FIELD
 
 #define DescriptorTemplate(...) \
-        { ._bytes = { __VA_ARGS__ } };
+	{ ._bytes = { __VA_ARGS__ } };
 #define FIELD(_type, _name) \
-        }, ._name = (_type)-1, ._bytes_after_##_name = {
+	}, ._name = (_type)-1, ._bytes_after_##_name = {
 
 #include DESCRIPTOR_FILE
 

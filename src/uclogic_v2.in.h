@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
+// See "hid_report_helpers.h" from udev-hid-bpf
+
 DescriptorTemplate(
 	UsagePage_Digitizers
 	Usage_Dig_Digitizer
