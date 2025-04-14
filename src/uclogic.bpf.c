@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 #include "vmlinux.h"
 #include "hid_bpf.h"
@@ -370,4 +370,4 @@ int probe(struct hid_bpf_probe_args *ctx)
 	return 0;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";
