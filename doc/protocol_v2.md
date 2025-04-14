@@ -169,6 +169,7 @@ struct {
     __u8 _unknown_2;
     bool dial_cw : 1;
     bool dial_ccw : 1;
+    __u8 _unknown_3 : 6;
     __u8 _unknown[];
 } __attribute__((packed));
 ```
@@ -182,6 +183,7 @@ The meanings of fields are as follows:
 - `_unknown_2`
 - `dial_cw`: Dial turning clockwise
 - `dial_ccw`: Dial turning counter-clockwise
+- `_unknown_3`: padding?
 - `_unknown[]`
 
 Example: Huion Kamvas 13 (Gen 3) (`256c:2008`)
