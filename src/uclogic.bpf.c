@@ -7,6 +7,10 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_endian.h>
 
+#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+# error "Only little-endian is supported"
+#endif
+
 #define NUM_BTN_MISC 10
 #define NUM_BTN_GAMEPAD 15
 #define MAX_NUM_BTNS (NUM_BTN_MISC + NUM_BTN_GAMEPAD)
@@ -76,19 +80,19 @@ static inline int parse_magic_bytes_v2(unsigned int id, struct magic_info *info)
 	long len = magic_bytes_len();
 
 	if (len < 0) {
-		bpf_printk("Error parsing magic bytes");
+		bpf_printk("%04x: Error parsing magic bytes", id);
 		return -EINVAL;
 	}
 
 	if (len < 18) {
-		bpf_printk("Magic bytes too short for v2");
+		bpf_printk("%04x: Magic bytes too short for v2", id);
 		return -EINVAL;
 	}
 
 #define M(i) ((__u32)magic_bytes_get_u8(i))
 
-	info->lmax_x = M(2)| (M(3) << 8) | (M(4) << 16);
-	info->lmax_y = M(5)| (M(6) << 8) | (M(7) << 16);
+	info->lmax_x = M(2) | (M(3) << 8) | (M(4) << 16);
+	info->lmax_y = M(5) | (M(6) << 8) | (M(7) << 16);
 	info->lmax_pressure = M(8) | (M(9) << 8);
 	info->resolution = M(10) | (M(11) << 8);
 	info->num_btns = M(13);
@@ -145,7 +149,7 @@ static __always_inline int probe_device(
 		bpf_printk("%04x: Vendor interface found, will fixup", id);
 		return 1;
 	} else {
-		bpf_printk("%04x: Standard interface found, will disable", id);
+		bpf_printk("%04x: Other interface found, will disable", id);
 		return 0;
 	}
 }
@@ -236,7 +240,7 @@ int BPF_PROG(uclogic_fix_event, struct hid_bpf_ctx *hid_ctx)
 	__u8 *data = hid_bpf_get_data(hid_ctx, 0, REPORT_SIZE);
 	__s32 size = hid_ctx->size;
 
-	if (!data || size != REPORT_SIZE)
+	if (!data || size < REPORT_SIZE)
 		return 0;
 
 	union vendor_report v = *(union vendor_report*)data;
@@ -289,7 +293,9 @@ int BPF_PROG(uclogic_fix_rdesc, struct hid_bpf_ctx *hid_ctx)
 
 	if (ret < 0) {
 		return 0;
-	} else if (ret) {
+	}
+
+	if (ret) {
 		// Vendor interface, patch
 		should_fix_event = true;
 
@@ -337,7 +343,7 @@ int BPF_PROG(uclogic_fix_rdesc, struct hid_bpf_ctx *hid_ctx)
 			return sizeof(rdesc);
 		}
 	} else {
-		// Standard interface, disable
+		// Other interface, disable
 		__builtin_memcpy(data, disabled_rdesc, sizeof(disabled_rdesc));
 		return sizeof(disabled_rdesc);
 	}

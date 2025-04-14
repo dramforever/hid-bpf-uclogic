@@ -71,19 +71,20 @@ DescriptorTemplate(
 	Usage_GD_Keypad
 	CollectionApplication(
 		ReportId(PAD_REPORT_ID)
+
+		// Fake buttons, to convince consumer it's a tablet
 		LogicalMinimum_i8(0)
 		LogicalMaximum_i8(1)
 		UsagePage_Digitizers
 		Usage_Dig_TabletFunctionKeys
 		CollectionPhysical(
-			// Byte 1 in report - just exists so we get to be a tablet pad
 			Usage_Dig_BarrelSwitch
 			ReportCount(1)
 			ReportSize(1)
 			Input(Var|Abs)
 			ReportCount(7)
 			Input(Const)
-			// Bytes 2/3 in report - just exists so we get to be a tablet pad
+
 			UsagePage_GenericDesktop
 			Usage_GD_X
 			Usage_GD_Y
@@ -100,16 +101,14 @@ DescriptorTemplate(
 		Input(Var|Abs)
 
 #ifdef use_btn_gamepad
-		PushPop(
-			UsagePage_GenericDesktop
-			Usage_GD_Gamepad
-			CollectionApplication(
-				UsagePage_Button
-				UsageMinimum_i8(1)
-				0x29, FIELD(__u8, num_btn_gamepad_1) // UsageMaximum_i8
-				0x95, FIELD(__u8, num_btn_gamepad_2) // ReportCount
-				Input(Var|Abs)
-			)
+		UsagePage_GenericDesktop
+		Usage_GD_Gamepad
+		CollectionApplication(
+			UsagePage_Button
+			UsageMinimum_i8(1)
+			0x29, FIELD(__u8, num_btn_gamepad_1) // UsageMaximum_i8
+			0x95, FIELD(__u8, num_btn_gamepad_2) // ReportCount
+			Input(Var|Abs)
 		)
 #endif
 

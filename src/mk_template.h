@@ -20,7 +20,6 @@
 
 #include DESCRIPTOR_FILE
 
-#undef _descriptor_type
 #undef DescriptorTemplate_begin
 #undef DescriptorTemplate_end
 
