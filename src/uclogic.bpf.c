@@ -102,6 +102,11 @@ static inline int parse_magic_bytes_v2(unsigned int id, struct magic_info *info)
 	return 0;
 }
 
+enum device_status_type {
+	DEVICE_OTHER,
+	DEVICE_VENDOR
+};
+
 static __always_inline int probe_device(
 	unsigned int id,
 	__u8 *rdesc,
@@ -145,12 +150,13 @@ static __always_inline int probe_device(
 		return -EINVAL;
 	}
 
+	// UsagePage_Vendor(0xff00)
 	if (__builtin_memcmp(rdesc, (__u8[]){ 0x06, 0x00, 0xff }, 3) == 0) {
 		bpf_printk("%04x: Vendor interface found, will fixup", id);
-		return 1;
+		return DEVICE_VENDOR;
 	} else {
 		bpf_printk("%04x: Other interface found, will disable", id);
-		return 0;
+		return DEVICE_OTHER;
 	}
 }
 
@@ -229,12 +235,13 @@ union report {
 
 #define REPORT_NUM_BTN_BITS ((sizeof(union vendor_report) - 4) * 8)
 
-bool should_fix_event;
+struct magic_info device_info;
+int device_status = -EINVAL;
 
 SEC(HID_BPF_DEVICE_EVENT)
 int BPF_PROG(uclogic_fix_event, struct hid_bpf_ctx *hid_ctx)
 {
-	if (!should_fix_event)
+	if (device_status != DEVICE_VENDOR)
 		return 0;
 
 	__u8 *data = hid_bpf_get_data(hid_ctx, 0, REPORT_SIZE);
@@ -282,48 +289,48 @@ int BPF_PROG(uclogic_fix_event, struct hid_bpf_ctx *hid_ctx)
 SEC(HID_BPF_RDESC_FIXUP)
 int BPF_PROG(uclogic_fix_rdesc, struct hid_bpf_ctx *hid_ctx)
 {
+	if (device_status < 0) {
+		bpf_printk("%04x: Successful probe required", hid_ctx->hid->id);
+		return 0;
+	}
+
 	__u8 *data = hid_bpf_get_data(hid_ctx, 0, HID_MAX_DESCRIPTOR_SIZE);
 	__s32 size = hid_ctx->size;
 
 	if (!data || size < 0)
 		return 0;
 
-	struct magic_info info;
-	int ret = probe_device(hid_ctx->hid->id, data, size, &info);
+	// Just a shorter name
+	const struct magic_info *info = &device_info;
 
-	if (ret < 0) {
-		return 0;
-	}
-
-	if (ret) {
+	if (device_status == DEVICE_VENDOR) {
 		// Vendor interface, patch
-		should_fix_event = true;
 
 		__u32 pmax_x, pmax_y;
-		if (info.resolution) {
-			pmax_x = info.lmax_x * 1000 / info.resolution;
-			pmax_y = info.lmax_y * 1000 / info.resolution;
+		if (info->resolution) {
+			pmax_x = info->lmax_x * 1000 / info->resolution;
+			pmax_y = info->lmax_y * 1000 / info->resolution;
 		} else {
 			pmax_x = 0;
 			pmax_y = 0;
 		}
 
-		__u8 num_btn_padding = REPORT_NUM_BTN_BITS - info.num_btns;
+		__u8 num_btn_padding = REPORT_NUM_BTN_BITS - info->num_btns;
 
-		if (info.num_btns > NUM_BTN_MISC) {
+		if (info->num_btns > NUM_BTN_MISC) {
 			bpf_printk("%04x: Using both BTN_MISC and BTN_GAMEPAD",
 				hid_ctx->hid->id);
 			struct rdesc_uclogic_v2_gamepad rdesc =
 				rdesc_uclogic_v2_gamepad;
-			rdesc.lmax_x = info.lmax_x;
-			rdesc.lmax_y = info.lmax_y;
+			rdesc.lmax_x = info->lmax_x;
+			rdesc.lmax_y = info->lmax_y;
 			rdesc.pmax_x = pmax_x;
 			rdesc.pmax_y = pmax_y;
-			rdesc.lmax_pressure = info.lmax_pressure;
+			rdesc.lmax_pressure = info->lmax_pressure;
 			rdesc.num_btn_misc_1 = NUM_BTN_MISC;
 			rdesc.num_btn_misc_2 = NUM_BTN_MISC;
-			rdesc.num_btn_gamepad_1 = info.num_btns - NUM_BTN_MISC;
-			rdesc.num_btn_gamepad_2 = info.num_btns - NUM_BTN_MISC;
+			rdesc.num_btn_gamepad_1 = info->num_btns - NUM_BTN_MISC;
+			rdesc.num_btn_gamepad_2 = info->num_btns - NUM_BTN_MISC;
 			rdesc.num_btn_padding = num_btn_padding;
 			__builtin_memcpy(data, &rdesc,  sizeof(rdesc));
 			return sizeof(rdesc);
@@ -331,18 +338,18 @@ int BPF_PROG(uclogic_fix_rdesc, struct hid_bpf_ctx *hid_ctx)
 			bpf_printk("%04x: Using only BTN_MISC",
 				hid_ctx->hid->id);
 			struct rdesc_uclogic_v2 rdesc = rdesc_uclogic_v2;
-			rdesc.lmax_x = info.lmax_x;
-			rdesc.lmax_y = info.lmax_y;
+			rdesc.lmax_x = info->lmax_x;
+			rdesc.lmax_y = info->lmax_y;
 			rdesc.pmax_x = pmax_x;
 			rdesc.pmax_y = pmax_y;
-			rdesc.lmax_pressure = info.lmax_pressure;
-			rdesc.num_btn_misc_1 = info.num_btns;
-			rdesc.num_btn_misc_2 = info.num_btns;
+			rdesc.lmax_pressure = info->lmax_pressure;
+			rdesc.num_btn_misc_1 = info->num_btns;
+			rdesc.num_btn_misc_2 = info->num_btns;
 			rdesc.num_btn_padding = num_btn_padding;
 			__builtin_memcpy(data, &rdesc, sizeof(rdesc));
 			return sizeof(rdesc);
 		}
-	} else {
+	} else if (device_status == DEVICE_OTHER) {
 		// Other interface, disable
 		__builtin_memcpy(data, disabled_rdesc, sizeof(disabled_rdesc));
 		return sizeof(disabled_rdesc);
@@ -359,11 +366,11 @@ HID_BPF_OPS(uclogic) = {
 SEC("syscall")
 int probe(struct hid_bpf_probe_args *ctx)
 {
-	static struct magic_info info;
-	int ret = probe_device(ctx->hid, ctx->rdesc, ctx->rdesc_size, &info);
+	device_status = probe_device(
+		ctx->hid, ctx->rdesc, ctx->rdesc_size, &device_info);
 
-	if (ret < 0)
-		ctx->retval = ret;
+	if (device_status < 0)
+		ctx->retval = device_status;
 	else
 		ctx->retval = 0;
 
