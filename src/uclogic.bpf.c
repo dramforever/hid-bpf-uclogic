@@ -175,6 +175,7 @@ static __always_inline int probe_device(
 #undef use_btn_gamepad
 
 static const __u8 disabled_rdesc[] = {
+	// Hardcoded size. Should not matter as it's meant to be unusable
 	FixedSizeVendorReport(64)
 };
 
@@ -233,7 +234,7 @@ union report {
 	} __attribute__((packed)) pad;
 } __attribute__((packed));
 
-#define REPORT_NUM_BTN_BITS ((sizeof(union vendor_report) - 4) * 8)
+#define REPORT_NUM_BTN_BITS ((REPORT_SIZE - 4) * 8)
 
 struct magic_info device_info;
 int device_status = -EINVAL;
