@@ -60,7 +60,6 @@ static inline long magic_bytes_len()
 
 	__u8 len = magic_bytes_get_u8(0);
 
-	#pragma unroll
 	for (size_t i = 0; i != sizeof(UDEV_PROP_HUION_MAGIC_BYTES); i ++) {
 		char b = magic[i];
 		if (i < len * 2) {
