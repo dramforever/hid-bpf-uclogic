@@ -161,6 +161,8 @@ static __always_inline int probe_device(
 
 #define PAD_REPORT_ID 3
 #define VENDOR_REPORT_ID 8
+#define TOUCH_REPORT_ID 0xf0
+
 #define REPORT_SIZE 12
 
 #define DESCRIPTOR_FILE "uclogic_v2.in.h"
@@ -211,6 +213,16 @@ union vendor_report {
 		__u8 _padding_1;
 		__u8 btns[8];
 	} __attribute__((packed)) pad;
+
+	struct {
+		__u8 report_id;
+		__u8 discriminant;
+		__u8 _unknown_0;
+		__u8 _unknown_1;
+		__u8 _unknown_2;
+		__u8 position;
+		__u8 _unknown[6];
+	} __attribute__((packed)) touch;
 } __attribute__((packed));
 
 union report {
@@ -231,6 +243,16 @@ union report {
 		__u8 y;
 		__u8 btns[8];
 	} __attribute__((packed)) pad;
+
+	struct {
+		__u8 report_id;
+		__u8 btn_stylus;
+		__u8 x;
+		__u8 y;
+		__u8 _padding_0;
+		__u8 delta;
+		__u8 _padding[6];
+	} __attribute__((packed)) touch;
 } __attribute__((packed));
 
 #define REPORT_NUM_BTN_BITS ((REPORT_SIZE - 4) * 8)
@@ -266,6 +288,32 @@ int BPF_PROG(uclogic_fix_event, struct hid_bpf_ctx *hid_ctx)
 		r->pad.x = 0;
 		r->pad.y = 0;
 		__builtin_memcpy(r->pad.btns, v.pad.btns, sizeof(r->pad.btns));
+	} else if (v.discriminant == 0xf0) {
+		// Touch event
+		_Static_assert(sizeof(v.touch) == REPORT_SIZE, "");
+		_Static_assert(sizeof(r->touch) == REPORT_SIZE, "");
+
+		// Translate to mouse event
+		// FIXME: This can't possibly be the right way
+
+		static __u8 touch;
+
+		__u8 last_touch = touch;
+		touch = v.touch.position;
+
+		if (touch == 0 || last_touch == 0) {
+			return -EINVAL;
+		}
+
+#define abs(x) ((x) > 0 ? (x) : -(x))
+		bool dir = (touch > last_touch) ^ (abs(touch - last_touch) < 4);
+#undef abs
+		r->touch.delta = dir ? -1 : 1;
+
+		r->touch.report_id = TOUCH_REPORT_ID;
+		r->touch.btn_stylus = 0;
+		r->touch.x = 0;
+		r->touch.y = 0;
 	} else {
 		// Stylus event
 		_Static_assert(sizeof(v.stylus) == REPORT_SIZE, "");

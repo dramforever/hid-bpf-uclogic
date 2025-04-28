@@ -14,9 +14,8 @@ Device feature support
 
 - [X] Stylus (including stylus buttons)
 - [X] Button pad
+- [X] Touch ring/strip (Partial support: Translated to mouse wheel)
 - [ ] Dial
-- [ ] Touch ring
-- [ ] Touch strip
 - [ ] Battery information
 
 ## Installation and usage

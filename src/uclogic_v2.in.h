@@ -116,3 +116,24 @@ CollectionApplication(
 	0x95, FIELD(__u8, num_btn_padding) // ReportCount
 	Input(Const)
 )
+UsagePage_GenericDesktop
+Usage_GD_Mouse
+CollectionApplication(
+	ReportId(TOUCH_REPORT_ID)
+
+	ReportSize(8)
+	ReportCount(4)
+	Input(Const)
+
+	UsagePage_GenericDesktop
+	Usage_GD_Wheel
+	LogicalMinimum_i8(-1)
+	LogicalMaximum_i8(1)
+	ReportSize(8)
+	ReportCount(1)
+	Input(Var|Rel)
+
+	ReportSize(8)
+	ReportCount(6)
+	Input(Const)
+)

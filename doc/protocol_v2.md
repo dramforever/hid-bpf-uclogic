@@ -156,6 +156,38 @@ Example: Gaomon M7 (`256c:0064`)
 08 e0 01 01 00 00 00 00 00 00 00 00     Button 13 release
 ```
 
+### Touch ring/strip report
+
+```
+struct {
+    __u8 report_id;
+    __u8 discriminant;
+    __u8 _unknown_0;
+    __u8 _unknown_1;
+    __u8 _unknown_2;
+    __u8 position;
+    __u8 _unknown[];
+} __attribute__((packed));
+```
+
+The meanings of fields are as follows:
+
+- `report_id`: `0x08`
+- `discriminant`: `0xf0`
+- `_unknown_0`: possibly some sort of ID?
+- `_unknown_1`: possibly some sort of ID?
+- `_unknown_2`
+- `_value`: `0` on touch leave, position of touch otherwise
+- `_unknown[]`
+
+Example: Huion HC16 (`256c:0064`)
+
+```
+08 f0 01 01 00 01 00 00 00 00 ff fe     Touch top
+08 f0 01 01 00 06 00 00 00 00 ff fe     Touch ring bottom
+08 f0 01 01 00 00 00 00 00 00 ff fe     Finger leaves
+```
+
 ## Dial report
 
 TODO
@@ -270,14 +302,6 @@ Example: Huion Kamvas 13 (Gen 3) (`256c:2008`)
 ```
 
 (The meaning of the trailing `03 00` is unknown.)
-
-### Touch ring report
-
-TODO
-
-### Touch strip report
-
-TODO
 
 ### Battery report
 
