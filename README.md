@@ -9,6 +9,7 @@ HID-BPF reimplementation of hid-uclogic, providing support for Huion/Gaomon/... 
 Known working devices:
 
 - Gaomon M7 (`256c:0064`)
+- Huion HC16 (`256c:0064`)
 
 Device feature support
 
