@@ -104,12 +104,13 @@ CollectionApplication(
 #ifdef use_btn_gamepad
 	UsagePage_GenericDesktop
 	Usage_GD_Gamepad
-
-	UsagePage_Button
-	UsageMinimum_i8(1)
-	0x29, FIELD(__u8, num_btn_gamepad_1) // UsageMaximum_i8
-	0x95, FIELD(__u8, num_btn_gamepad_2) // ReportCount
-	Input(Var|Abs)
+	CollectionApplication(
+		UsagePage_Button
+		UsageMinimum_i8(1)
+		0x29, FIELD(__u8, num_btn_gamepad_1) // UsageMaximum_i8
+		0x95, FIELD(__u8, num_btn_gamepad_2) // ReportCount
+		Input(Var|Abs)
+	)
 #endif
 
 	0x95, FIELD(__u8, num_btn_padding) // ReportCount
