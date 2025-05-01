@@ -247,7 +247,6 @@ int uclogic_fix_rdesc(unsigned long long *ctx)
 {
 	struct hid_bpf_ctx *hid_ctx = (struct hid_bpf_ctx *)ctx[0];
 	__u8 *data = hid_bpf_get_data(hid_ctx, 0, HID_MAX_DESCRIPTOR_SIZE);
-	__s32 size = hid_ctx->size;
 
 	if (!data)
 		return 0;

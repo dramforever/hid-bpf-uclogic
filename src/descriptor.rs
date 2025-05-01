@@ -106,7 +106,13 @@ impl Display for ParsedDeviceInfo {
         write!(
             f,
             "Device with {} buttons, max pen pressure {}, logical size ({}, {}), resolution {}, physical size in inches ({:.2}, {:.2})",
-            self.num_btns, self.pres_max, self.x_max, self.y_max, self.resolution, x_physical, y_physical,
+            self.num_btns,
+            self.pres_max,
+            self.x_max,
+            self.y_max,
+            self.resolution,
+            x_physical,
+            y_physical,
         )
     }
 }

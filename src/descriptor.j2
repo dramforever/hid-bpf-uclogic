@@ -23,8 +23,8 @@ a1 00                               {#   Collection (Physical) #}
 95 01                               {#     Report Count (1) #}
 
 {#- Stylus position #}
-{%- set x_phys = (x_max * 1000 / resolution) %}
-{%- set y_phys = (y_max * 1000 / resolution) %}
+{%- set x_phys = (x_max * 1000 // resolution) %}
+{%- set y_phys = (y_max * 1000 // resolution) %}
 a4                                  {#     Push #}
 05 01                               {#       Usage Page (Generic Desktop) #}
 65 13                               {#       Unit (EnglishLinear: in) #}

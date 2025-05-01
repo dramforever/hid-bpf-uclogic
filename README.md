@@ -19,83 +19,84 @@ Device feature support
 - [ ] Dial
 - [ ] Battery information
 
-## Installation and usage
+## Requirements
 
-Requirements:
+Runtime requirements:
 
+- A recent enough Linux on a little-endian machine
 - [huion-switcher]
-- [udev-hid-bpf] including headers from it (TODO: fix the headers part)
-- A BPF-targeting C compiler ([Clang] in examples below)
-- [libbpf]
-- [bpftool]
 
 [huion-switcher]: https://github.com/whot/huion-switcher
-[udev-hid-bpf]: https://gitlab.freedesktop.org/libevdev/udev-hid-bpf
-[Clang]: https://clang.llvm.org
-[libbpf]: https://libbpf.readthedocs.io/en/latest/api.html
-[bpftool]: https://bpftool.dev
 
-### Building
+Build requirements:
 
-To build `uclogic.bpf.o`
+- A Rust environment (Tested on 1.86.0)
+- A BPF-targeting C compiler (For example, Clang)
 
-```console
-$ clang -target bpf -O2 -g -c -o uclogic.bpf.unstripped.o src/uclogic.bpf.c
-$ bpftool gen object uclogic.bpf.o uclogic.bpf.unstripped.o
-```
+If you have a different BPF compiler, set `$BPF_CC` to it; otherwise, the default is `clang -target bpfel`.
 
-### Manual load
+## Usage
 
-The effects in this section are not presistent. The easiest way to undo everything here is to unplug and replug the device.
+For your convenience, `cargo run` is configured to use `sudo`.
 
-Find the sysfs paths of your device. One physical device often corresponds to multiple HID devices.
+If you want to replace the kernel hid-uclogic driver with hid-bpf-uclogic, "blacklist" the `hid-uclogic` module first. See [modprobe.d(5)].
+
+[modprobe.d(5)]: https://man7.org/linux/man-pages/man5/modprobe.d.5.html
+
+Firstly, find the desired device from `hid-bpf-uclogic --list-devices`:
 
 ```console
-$ udev-hid-bpf list-devices
+$ hid-bpf-uclogic --list-devices
+- USB 1-4 GAOMON Gaomon Tablet_M7 (256c:0064)
+  syspath /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4
+  - .0 HID 004C /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.0/0003:256C:0064.004C
+  - .1 HID 004D /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.1/0003:256C:0064.004D
+  - .2 HID 004E /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.2/0003:256C:0064.004E
 ```
 
-For *any one* `syspath` value corresponding to the device (`syspath` should look like `/sys/bus/hid/devices/0003:256C:0064.000A`), run the following, replacing `{syspath-here}`:
+If your device is not listed, check `hid-bpf-uclogic --list-devices-all` for all USB HID devices. If your device has vendor `256c` (shows `(256c:<something>)`) and/or responds to huion-switcher, it might work. Please [open an issue] and report your experience, if nobody else has already done so.
+
+[open an issue]: https://github.com/dramforever/hid-bpf-uclogic/issues
+
+Then, run `hid-bpf-uclogic --device` with the `syspath` from above. When testing, add `--wait` for convenience.
 
 ```console
-$ sudo huion-switcher {syspath-here}
+$ sudo hid-bpf-uclogic --device /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4 --wait
+- USB 1-4 GAOMON Gaomon Tablet_M7 (256c:0064)
+  syspath /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4
+
+!!! Default device functionality will be disabled, unplug and replug to reset
+
+Running: huion-switcher /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4
+Found device id "GM001_T207_210524"
+Device with 13 buttons, max pen pressure 8191, logical size (51689, 34308), resolution 5080, physical size in inches (10.18, 6.75)
+Unbinding compatibility device /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.2/0003:256C:0064.004E
+Unbinding compatibility device /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.1/0003:256C:0064.004D
+Driver loaded, Ctrl-C to terminate and unload
 ```
 
-The output should look like
+At this point, the device driver should be loaded. Terminating the process will unload the driver.
 
-```
-HUION_FIRMWARE_ID={string-here}
-HUION_MAGIC_BYTES={hex-digits-here}
-```
+If the driver fails to load or is unloaded, the device will not be functional. Unplug and replug to get back to the default state.
 
-(If you also see `HUION_PAD_MODE`, it is not supported by hid-bpf-uclogic yet.)
-
-**Note**: At this point, the tablet will no longer respond to any input. Do not panic.
-
-For *each* `syspath` value corresponding to the device, run the following, replacing `{syspath-here}`, and also replacing `{string-here}`, `{hex-digits-here}` with output from `sudo huion-switcher`
+To load the driver independently of hid-bpf-uclogic running, run without `--wait`:
 
 ```console
-$ sudo udev-hid-bpf --verbose add -p "HUION_FIRMWARE_ID={string-here}" -p "HUION_MAGIC_BYTES={hex-digits-here}" {syspath} - uclogic.bpf.o
+$ sudo hid-bpf-uclogic --device /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4
+[...]
+Driver loaded, to unload: rm /sys/fs/bpf/hid-bpf-uclogic-004C
 ```
 
-If that worked successfully, the tablet should now be fully functional, and you should see a new tablet device in your tablet settings in your desktop environment (if applicable).
+To unload the driver, remove the file from bpffs:
 
-### Loading with udev rules
-
-If you have the udev rules of `huion-switcher` installed, you can load hid-bpf-uclogic on all known devices:
-
-```console
-$ sudo udev-hid-bpf --verbose add - uclogic.bpf.o
+```
+$ sudo rm /sys/fs/bpf/hid-bpf-uclogic-004C
+$ sudo rm /sys/fs/bpf/hid-bpf-uclogic-*    # Remove all
 ```
 
-(TODO: How about udev-rules for hid-bpf-uclogic?)
+## Udev setup
 
-## Debugging
-
-Informational messages are printed to `bpf_trace_printk`. To see them:
-
-```console
-$ sudo cat /sys/kernel/debug/tracing/trace_pipe
-```
+(TODO)
 
 ## More information
 

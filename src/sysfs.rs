@@ -29,7 +29,7 @@ pub(crate) fn find_sysfs() -> Result<PathBuf, Box<dyn Error>> {
 
 pub(crate) fn find_bpffs() -> Result<PathBuf, Box<dyn Error>> {
     if fstype(c"/sys/fs/bpf")? != libc::BPF_FS_MAGIC {
-        Err("/sys/fs/bpf is not bpffs, please mount it with: mount -t bpffs bpffs /sys/fs/bpf")?;
+        Err("/sys/fs/bpf is not bpffs, please mount it with: mount -t bpf bpffs /sys/fs/bpf")?;
     }
     Ok("/sys/fs/bpf".into())
 }
@@ -94,7 +94,7 @@ pub(crate) fn find_map_parent<T>(
             return Ok(Some(res));
         }
     }
-    return Ok(None)
+    return Ok(None);
 }
 
 pub(crate) fn hid_device_id(device: &Path) -> Result<i32, Box<dyn Error>> {

@@ -39,7 +39,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     })));
 
     let args = clap::Command::new("hid-bpf-uclogic")
-        .about("Load helper for hid-bpf-uclogic")
         .version(env!("CARGO_PKG_VERSION"))
         .arg_required_else_help(true)
         .arg(
@@ -99,7 +98,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .get_matches();
 
     sysfs::find_sysfs()?;
-    sysfs::find_bpffs()?;
 
     if args.get_flag("list-devices") || args.get_flag("list-devices-all") {
         let show_all = args.get_flag("list-devices-all");
@@ -121,13 +119,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn load(args: &Args) -> Result<(), Box<dyn Error>> {
     use std::os::unix::ffi::OsStrExt;
 
+    if !args.wait {
+        sysfs::find_bpffs()?;
+    }
+
     let device: &Path = args.device.as_ref();
     let device = device.canonicalize()?;
 
     let mut hid_dev: Option<(i32, PathBuf)> = None;
 
     let Some(mut hids) = find_usb_hid()?.get(&device).cloned() else {
-        Err("Device does not seem to have HID child devices")?
+        if device.exists() {
+            Err("Device does not exist")?
+        } else {
+            Err("Device does not seem to be a USB HID device")?
+        }
     };
 
     if !args.force {
@@ -135,6 +141,8 @@ fn load(args: &Args) -> Result<(), Box<dyn Error>> {
             Err("Device is not supported")?;
         }
     }
+
+    print_usb_device(&device)?;
 
     let device_info = if let Some(device_info) = &args.device_info {
         std::fs::read_to_string(device_info)?
@@ -192,7 +200,7 @@ fn load(args: &Args) -> Result<(), Box<dyn Error>> {
 
     if PathBuf::from(&bpffs_name).exists() {
         if args.force {
-            if ! args.quiet {
+            if !args.quiet {
                 eprintln!("Driver already exists at {bpffs_name}");
             }
         } else {
@@ -240,11 +248,15 @@ fn call_huion_switcher(
         .stderr(std::process::Stdio::piped());
     if !quiet {
         eprintln!(
+            r#"
+!!! Default device functionality will be disabled, unplug and replug to reset
+"#
+        );
+        eprintln!(
             "Running: {} {}",
             huion_switcher.to_string_lossy(),
             device.display()
         );
-        eprintln!("\n!!! Device will require unplugging and replugging to reset\n");
     }
     let output = command.output()?;
     if !output.stderr.is_empty() {
@@ -263,22 +275,7 @@ fn list_devices(show_all: bool) -> Result<(), Box<dyn Error>> {
             continue;
         }
         let usb = usb.canonicalize()?;
-        let base = usb.file_name().unwrap();
-
-        let prop = |name, default: &str| {
-            sysfs::property_trim(&usb, name).map(|p| p.unwrap_or(default.to_owned()))
-        };
-        let vid = prop("idVendor", "????")?;
-        let pid = prop("idProduct", "????")?;
-        let manufacturer = prop("manufacturer", "(Unknown manufacturer)")?;
-        let product = prop("product", "(Unknown product)")?;
-
-        println!(
-            "- USB {base} {manufacturer} {product} ({vid}:{pid})
-  syspath {usb}",
-            base = base.to_string_lossy(),
-            usb = usb.to_string_lossy(),
-        );
+        print_usb_device(&usb)?;
 
         for (num, hid) in hids {
             let hid = hid.canonicalize()?;
@@ -286,6 +283,24 @@ fn list_devices(show_all: bool) -> Result<(), Box<dyn Error>> {
             println!("  - .{num} HID {id:04X} {hid}", hid = hid.display());
         }
     }
+    Ok(())
+}
+
+fn print_usb_device(usb: &Path) -> Result<(), Box<dyn Error>> {
+    let base = usb.file_name().unwrap();
+    let prop = |name, default: &str| {
+        sysfs::property_trim(&usb, name).map(|p| p.unwrap_or(default.to_owned()))
+    };
+    let vid = prop("idVendor", "????")?;
+    let pid = prop("idProduct", "????")?;
+    let manufacturer = prop("manufacturer", "(Unknown manufacturer)")?;
+    let product = prop("product", "(Unknown product)")?;
+    println!(
+        "- USB {base} {manufacturer} {product} ({vid}:{pid})
+  syspath {usb}",
+        base = base.to_string_lossy(),
+        usb = usb.to_string_lossy(),
+    );
     Ok(())
 }
 
@@ -348,7 +363,8 @@ fn find_usb_hid() -> Result<HashMap<PathBuf, Vec<(u8, PathBuf)>>, Box<dyn Error>
 }
 
 fn fixup_device(hid_id: i32, rdesc: &[u8]) -> Result<Link, Box<dyn Error>> {
-    let mut open_obj = ObjectBuilder::default().open_file("uclogic.bpf.o")?;
+    let mut open_obj = ObjectBuilder::default()
+        .open_memory(include_bytes!(concat!(env!("OUT_DIR"), "/uclogic.bpf.o")))?;
     let mut config = open_obj
         .maps_mut()
         .find(|m| m.name() == ".rodata.uclogic_config")
