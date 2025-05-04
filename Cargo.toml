@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.37", default-features = false, features = ["help", "suggestions", "usage", "std"] }
+eyre = "0.6.12"
 hex = "0.4.3"
 libbpf-rs = "0.24.8"
 libc = "0.2.172"

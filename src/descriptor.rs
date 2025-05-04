@@ -1,7 +1,9 @@
-use std::{collections::HashMap, error::Error, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use minijinja;
 use serde::Serialize;
+
+use eyre::{Context, OptionExt, Result, bail};
 
 #[derive(Debug)]
 pub(crate) struct DeviceInfo {
@@ -19,44 +21,44 @@ pub(crate) struct ParsedDeviceInfo {
 }
 
 impl DeviceInfo {
-    pub(crate) fn from_str(text: &str) -> Result<Self, Box<dyn Error>> {
-        fn unquote(s: &str) -> Result<&str, &'static str> {
+    pub(crate) fn from_str(text: &str) -> Result<Self> {
+        fn unquote(s: &str) -> Result<&str> {
             s.strip_prefix('"')
                 .and_then(|s| s.strip_suffix('"'))
-                .ok_or("Incorrect quotes")
+                .ok_or_eyre("Incorrectly quoted line")
         }
 
         let info: HashMap<&str, &str> = text
             .lines()
             .filter_map(|l| l.split_once('='))
             .map(|(key, value)| Ok((key, unquote(value)?)))
-            .collect::<Result<_, &'static str>>()?;
+            .collect::<Result<_>>()?;
 
         if info.contains_key("HUION_PAD_MODE") {
-            return Err("Unsupported v1 protocol device")?;
+            bail!("Unsupported v1 protocol device");
         }
 
         Ok(Self {
             firmware: info
                 .get("HUION_FIRMWARE_ID")
                 .copied()
-                .ok_or("No HUION_FIRMWARE_ID found")?
+                .ok_or_eyre("No HUION_FIRMWARE_ID found")?
                 .to_owned(),
             magic_bytes: hex::decode(
                 info.get("HUION_MAGIC_BYTES")
                     .copied()
-                    .ok_or("No HUION_MAGIC_BYTES found")?,
+                    .ok_or_eyre("No HUION_MAGIC_BYTES found")?,
             )?,
         })
     }
 
-    pub(crate) fn parse(&self) -> Result<ParsedDeviceInfo, &'static str> {
+    pub(crate) fn parse(&self) -> Result<ParsedDeviceInfo> {
         if self.magic_bytes.len() < 18 {
-            return Err("Device info too short");
+            bail!("Device info too short");
         }
 
         if self.magic_bytes[0] as usize != self.magic_bytes.len() {
-            return Err("Device info has incorrect length");
+            bail!("Device info has incorrect length");
         }
 
         fn le(bytes: &[u8]) -> u32 {
@@ -81,7 +83,7 @@ impl DeviceInfo {
 }
 
 impl ParsedDeviceInfo {
-    pub(crate) fn descriptor(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub(crate) fn descriptor(&self) -> Result<Vec<u8>> {
         let mut env = minijinja::Environment::new();
         fn bytes(bs: &[u8]) -> String {
             bs.iter()
@@ -92,9 +94,11 @@ impl ParsedDeviceInfo {
         env.add_filter("u16", |val: u16| bytes(&val.to_le_bytes()));
         env.add_filter("u32", |val: u32| bytes(&val.to_le_bytes()));
         env.add_filter("u8", |val: u8| format!("{val:02x}"));
-        let mut hex_str = env.render_str(include_str!("descriptor.j2"), self)?;
+        let mut hex_str = env
+            .render_str(include_str!("descriptor.j2"), self)
+            .wrap_err("Descriptor template error")?;
         hex_str.retain(|x| !x.is_ascii_whitespace());
-        Ok(hex::decode(hex_str).expect("Invalid hex data"))
+        Ok(hex::decode(hex_str).wrap_err("Descriptor template output invalid")?)
     }
 }
 
