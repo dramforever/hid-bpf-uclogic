@@ -120,3 +120,29 @@ impl Display for ParsedDeviceInfo {
         )
     }
 }
+
+#[test]
+fn descriptor_test() {
+    let dev = ParsedDeviceInfo {
+        x_max: 50800,
+        y_max: 31750,
+        pres_max: 8191,
+        resolution: 5080,
+        num_btns: 13,
+    };
+
+    insta::assert_binary_snapshot!(".bin", dev.descriptor().unwrap());
+}
+
+#[test]
+fn descriptor_test_less_buttons() {
+    let dev = ParsedDeviceInfo {
+        x_max: 50800,
+        y_max: 31750,
+        pres_max: 8191,
+        resolution: 5080,
+        num_btns: 5,
+    };
+
+    insta::assert_binary_snapshot!(".bin", dev.descriptor().unwrap());
+}

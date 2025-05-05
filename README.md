@@ -37,7 +37,11 @@ If you have a different BPF compiler, set `$BPF_CC` to it; otherwise, the defaul
 
 ## Usage
 
-For your convenience, `cargo run` is configured to use `sudo`.
+To use `cargo run` for the following:
+
+```console
+$ cargo --config 'target."cfg(all())".runner = "sudo"' run -- <args>
+```
 
 If you want to replace the kernel hid-uclogic driver with hid-bpf-uclogic, "blacklist" the `hid-uclogic` module first. See [modprobe.d(5)].
 
