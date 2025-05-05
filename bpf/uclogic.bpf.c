@@ -72,7 +72,7 @@ extern __u8 *hid_bpf_get_data(struct hid_bpf_ctx *ctx,
 SEC(".rodata.uclogic_config")
 struct uclogic_config {
 	__u32 new_rdesc_size;
-	__u8 new_rdesc[256];
+	__u8 new_rdesc[384];
 } uclogic_config;
 
 int uclogic_fix_event(unsigned long long *ctx);
@@ -204,7 +204,7 @@ int uclogic_fix_event(unsigned long long *ctx)
 	} else if (v.discriminant == 0xf0) {
 		// Touch event
 
-		// Translate to mouse event
+		// Translate to relative wheel event
 		// FIXME: This can't possibly be the right way
 
 		static __u8 touch;

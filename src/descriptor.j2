@@ -118,19 +118,43 @@ c0                                  {# End Collection #}
 {#- Touch ring/dial #}
 {#- TODO Conditionally include this #}
 05 01                               {# Usage Page (Generic Desktop) #}
-09 02                               {# Usage (Mouse) #}
-a1 01                               {#   Collection (Application) #}
+09 07                               {# Usage (Keypad) #}
+a1 01                               {# Collection (Application) #}
+{#- __u8 report_id; #}
 85 f0                               {#   Report ID (240) #}
-75 08                               {#   Report Size (8) #}
-95 04                               {#   Report Count (4) #}
-81 01                               {#   Input (Cnst,Arr,Abs) #}
-05 01                               {#   Usage Page (Generic Desktop) #}
-09 38                               {#   Usage (Wheel) #}
-15 ff                               {#   Logical Minimum (-1) #}
+15 00                               {#   Logical Minimum (0) #}
 25 01                               {#   Logical Maximum (1) #}
-75 08                               {#   Report Size (8) #}
-95 01                               {#   Report Count (1) #}
-81 06                               {#   Input (Data,Var,Rel) #}
+05 0d                               {#   Usage Page (Digitizers) #}
+09 39                               {#   Usage (Tablet Function Keys) #}
+{#- Fake stuff to be recognized as a tablet #}
+a1 00                               {#   Collection (Physical) #}
+{#- __u8 btn_stylus; // fake #}
+05 09                               {#     Usage Page (Buttons) #}
+09 01                               {#     Usage (1) #}
+95 01                               {#     Report Count (1) #}
+75 01                               {#     Report Size (1) #}
+81 02                               {#     Input (Data,Var,Abs) #}
+95 07                               {#     Report Count (7) #}
+{#- __u8 x; __u8 y; // fake #}
+81 01                               {#     Input (Cnst,Arr,Abs) #}
+05 01                               {#     Usage Page (Generic Desktop) #}
+09 30                               {#     Usage (X) #}
+09 31                               {#     Usage (Y) #}
+75 08                               {#     Report Size (8) #}
+95 02                               {#     Report Count (2) #}
+81 02                               {#     Input (Data,Var,Abs) #}
+{#- __u8 _padding_0; #}
+95 01                               {#     Report Count (1) #}
+81 01                               {#     Input (Cnst,Arr,Abs) #}
+{#- __u8 delta; #}
+05 01                               {#     Usage Page (Generic Desktop) #}
+09 38                               {#     Usage (Wheel) #}
+95 01                               {#     Report Count (1) #}
+15 ff                               {#     Logical Minimum (-1) #}
+25 01                               {#     Logical Minimum (1) #}
+81 06                               {#     Input (Data,Var,Rel) #}
+{#- __u8 _padding[6]; #}
+c0                                  {#   End Collection #}
 75 08                               {#   Report Size (8) #}
 95 06                               {#   Report Count (6) #}
 81 01                               {#   Input (Cnst,Arr,Abs) #}
