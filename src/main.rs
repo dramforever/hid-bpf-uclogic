@@ -145,7 +145,9 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
         }
     }
 
-    print_usb_device(&device)?;
+    if !args.quiet {
+        print_usb_device(&device)?;
+    }
 
     let device_info = if let Some(device_info) = &args.device_info {
         std::fs::read_to_string(device_info).wrap_err_with(|| {
@@ -211,9 +213,7 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
 
     if PathBuf::from(&bpffs_name).exists() {
         if args.force {
-            if !args.quiet {
-                eprintln!("Driver already exists at {bpffs_name}");
-            }
+            eprintln!("Driver already exists at {bpffs_name}");
         } else {
             bail!(format!("Driver already exists, to remove: rm {bpffs_name}"));
         }
