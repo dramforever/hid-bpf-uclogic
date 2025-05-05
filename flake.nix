@@ -23,6 +23,8 @@
             rustfmt,
             rustc,
             rustPlatform,
+            huion-switcher,
+            buildPackages,
           }:
 
           mkShell {
@@ -31,11 +33,13 @@
               cargo
               rustfmt
               rustc
+              buildPackages.llvmPackages.clang-unwrapped
             ];
             buildInputs = [
               zlib
               elfutils
               libbpf
+              huion-switcher
             ];
 
             RUST_SRC_PATH = rustPlatform.rustLibSrc;
