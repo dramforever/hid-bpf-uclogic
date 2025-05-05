@@ -4,12 +4,13 @@ mod sysfs;
 use libbpf_rs::{Link, MapCore, ObjectBuilder};
 use std::{
     collections::HashMap,
-    ffi::OsString,
-    fs, io,
+    ffi::{CStr, OsStr, OsString},
+    io,
     path::{Path, PathBuf},
 };
+use sysfs::{Sysfs, SysfsPath};
 
-use eyre::{Context, Result, bail};
+use eyre::{Context, OptionExt, Result, bail, eyre};
 
 static SUPPORTED_VID_PID: &[(u32, u32)] = &[
     // Gaomon M6
@@ -98,43 +99,44 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    sysfs::find_sysfs()?;
+    let sysfs = Sysfs::get()?;
+    let sysfs = sysfs.root()?;
 
     if args.get_flag("list-devices") || args.get_flag("list-devices-all") {
         let show_all = args.get_flag("list-devices-all");
 
-        list_devices(show_all)?;
+        list_devices(&sysfs, show_all)?;
     } else {
-        load(&Args {
-            device: args.get_one::<OsString>("device").unwrap().clone(),
-            with_huion_switcher: args.get_one("with-huion-switcher").cloned(),
-            device_info: args.get_one("device-info").cloned(),
-            force: args.get_flag("force"),
-            wait: args.get_flag("wait"),
-            quiet: args.get_flag("quiet"),
-        })?;
+        load(
+            &sysfs,
+            &Args {
+                device: args.get_one::<OsString>("device").unwrap().clone(),
+                with_huion_switcher: args.get_one("with-huion-switcher").cloned(),
+                device_info: args.get_one("device-info").cloned(),
+                force: args.get_flag("force"),
+                wait: args.get_flag("wait"),
+                quiet: args.get_flag("quiet"),
+            },
+        )?;
     }
     Ok(())
 }
 
-fn load(args: &Args) -> Result<()> {
+fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
     use std::os::unix::ffi::OsStrExt;
 
     if !args.wait {
-        sysfs::find_bpffs()?;
+        find_bpffs()?;
     }
 
-    let device: &Path = args.device.as_ref();
-    let device = device.canonicalize().wrap_err("Cannot find the device")?;
+    let device = sysfs
+        .sub(&PathBuf::from(&args.device))?
+        .ok_or_eyre("Device not found")?;
 
-    let mut hid_dev: Option<(i32, PathBuf)> = None;
+    let usb_hid = find_usb_hid(sysfs)?;
 
-    let Some(mut hids) = find_usb_hid()?.get(&device).cloned() else {
-        if device.exists() {
-            bail!("Device does not exist");
-        } else {
-            bail!("Device does not seem to be a USB HID device");
-        }
+    let Some(hids) = usb_hid.get(&device) else {
+        bail!("Device does not seem to be a USB HID device");
     };
 
     if !args.force {
@@ -155,7 +157,7 @@ fn load(args: &Args) -> Result<()> {
             .clone()
             .unwrap_or("huion-switcher".into());
 
-        call_huion_switcher(&device, huion_switcher, args.quiet)
+        call_huion_switcher(&PathBuf::from(&args.device), huion_switcher, args.quiet)
             .wrap_err("Error running huion-switcher")?
     };
 
@@ -176,24 +178,24 @@ fn load(args: &Args) -> Result<()> {
     }
     let new_rdesc = parsed.descriptor()?;
 
-    // Iterate by decreasing path length so we unbind child devices first
-    hids.sort_by_key(|(_, p)| p.as_os_str().len());
+    let mut hid_dev: Option<(i32, &SysfsPath)> = None;
 
-    for (num, hid) in hids.into_iter().rev() {
-        if num == 0 {
-            hid_dev = Some((
-                sysfs::hid_device_id(&hid)
-                    .wrap_err_with(|| format!("Failed to parse HID number of {}", hid.display()))?,
-                hid,
-            ));
+    for (num, hid_name, hid) in hids.into_iter().rev() {
+        if *num == 0 {
+            let id = parse_hid_id(&hid_name)
+                .ok_or_else(|| eyre!("Unexpected HID device name {:?}", hid_name))?;
+            hid_dev = Some((id, hid));
             continue;
         }
 
         if !args.quiet {
-            eprintln!("Unbinding compatibility device {}", hid.display());
+            eprintln!(
+                "Unbinding compatibility device {}",
+                hid.recover_path()?.display()
+            );
         }
-        let base = hid.file_name().unwrap();
-        let res = fs::write(hid.join("driver/unbind"), base.to_os_string().as_bytes());
+
+        let res = hid.write("driver/unbind", hid_name.as_bytes());
         match res {
             Ok(()) => (),
             Err(e) if e.kind() == io::ErrorKind::NotFound => (),
@@ -218,7 +220,7 @@ fn load(args: &Args) -> Result<()> {
     }
 
     if !args.force {
-        let orig_rdesc = fs::read(hid_dev.join("report_descriptor"))?;
+        let orig_rdesc = hid_dev.read("report_descriptor")?;
 
         if orig_rdesc[..3] != [0x06, 0x00, 0xff] {
             bail!("Found HID device is not what was unexpected.");
@@ -254,6 +256,33 @@ fn load(args: &Args) -> Result<()> {
     Ok(())
 }
 
+fn parse_hid_id(name: &OsStr) -> Option<i32> {
+    let id = name.to_str()?.split('.').last()?;
+    Some(i32::from_str_radix(id, 16).ok()?)
+}
+
+fn fstype(path: &CStr) -> Result<libc::__fsword_t, io::Error> {
+    use std::mem::MaybeUninit;
+
+    let sfs = unsafe {
+        let mut sfs = MaybeUninit::zeroed();
+        let res = libc::statfs(path.as_ptr(), sfs.as_mut_ptr());
+        if res < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        sfs.assume_init()
+    };
+
+    Ok(sfs.f_type)
+}
+
+fn find_bpffs() -> Result<PathBuf> {
+    if fstype(c"/sys/fs/bpf")? != libc::BPF_FS_MAGIC {
+        bail!("/sys/fs/bpf is not bpffs, please mount it with: mount -t bpf bpffs /sys/fs/bpf");
+    }
+    Ok("/sys/fs/bpf".into())
+}
+
 fn call_huion_switcher(device: &Path, huion_switcher: OsString, quiet: bool) -> Result<String> {
     let mut command = std::process::Command::new(&huion_switcher);
     command
@@ -282,29 +311,34 @@ fn call_huion_switcher(device: &Path, huion_switcher: OsString, quiet: bool) -> 
     Ok(String::from_utf8(output.stdout)?)
 }
 
-fn list_devices(show_all: bool) -> Result<()> {
-    let devs = find_usb_hid()?;
+fn list_devices(sysfs: &SysfsPath, show_all: bool) -> Result<()> {
+    let devs = find_usb_hid(sysfs)?;
     for (usb, hids) in devs {
-        if !show_all && usb_supported(&usb).unwrap_or_default() {
+        if !show_all && !usb_supported(&usb).unwrap_or_default() {
             continue;
         }
 
-        let usb = usb.canonicalize()?;
         print_usb_device(&usb)?;
 
-        for (num, hid) in hids {
-            let hid = hid.canonicalize()?;
-            let id = sysfs::hid_device_id(&hid)?;
-            println!("  - .{num} HID {id:04X} {hid}", hid = hid.display());
+        for (num, name, hid) in hids {
+            let Some(id) = parse_hid_id(&name) else {
+                continue;
+            };
+            println!(
+                "  - .{num} HID {id:04X} {hid}",
+                hid = hid.recover_path()?.display()
+            );
         }
     }
     Ok(())
 }
 
-fn print_usb_device(usb: &Path) -> Result<()> {
-    let base = usb.file_name().unwrap();
+fn print_usb_device(usb: &SysfsPath) -> Result<()> {
+    let usb_path = usb.recover_path()?;
+    let base = usb_path.file_name().unwrap();
     let prop = |name, default: &str| {
-        sysfs::property_trim(&usb, name).map(|p| p.unwrap_or(default.to_owned()))
+        usb.property_trim(name)
+            .map(|p| p.unwrap_or(default.to_owned()))
     };
     let vid = prop("idVendor", "????")?;
     let pid = prop("idProduct", "????")?;
@@ -314,23 +348,23 @@ fn print_usb_device(usb: &Path) -> Result<()> {
         "- USB {base} {manufacturer} {product} ({vid}:{pid})
   syspath {usb}",
         base = base.to_string_lossy(),
-        usb = usb.to_string_lossy(),
+        usb = usb_path.to_string_lossy(),
     );
     Ok(())
 }
 
-fn usb_supported(device: &Path) -> Result<bool> {
-    if sysfs::get_subsystem(device)? != Some("usb".to_owned()) {
+fn usb_supported(device: &SysfsPath) -> Result<bool> {
+    if device.subsystem()? != Some("usb".to_owned()) {
         return Ok(false);
     }
 
-    let Some(vid) = sysfs::property_trim(device, "idVendor")? else {
+    let Some(vid) = device.property_trim("idVendor")? else {
         return Ok(false);
     };
     let Ok(vid) = u32::from_str_radix(&vid, 16) else {
         return Ok(false);
     };
-    let Some(pid) = sysfs::property_trim(device, "idProduct")? else {
+    let Some(pid) = device.property_trim("idProduct")? else {
         return Ok(false);
     };
     let Ok(pid) = u32::from_str_radix(&pid, 16) else {
@@ -340,24 +374,34 @@ fn usb_supported(device: &Path) -> Result<bool> {
     Ok(SUPPORTED_VID_PID.contains(&(vid, pid)))
 }
 
-fn find_usb_hid() -> Result<HashMap<PathBuf, Vec<(u8, PathBuf)>>> {
-    let sys = sysfs::find_sysfs()?;
-    let sys_usb = sysfs::find_subsystem(&sys, "usb")?.expect("No usb subsystem found");
-    let sys_hid = sysfs::find_subsystem(&sys, "hid")?.expect("No hid subsystem found");
-    let mut devices: HashMap<PathBuf, Vec<(u8, PathBuf)>> = HashMap::new();
-    for dev in sysfs::subsystem_devices(&sys_usb)? {
-        if sysfs::property(&dev, "devnum")?.is_some() {
-            devices.insert(dev.canonicalize()?, Vec::new());
+fn find_usb_hid<'a>(
+    sysfs: &SysfsPath<'a>,
+) -> Result<HashMap<SysfsPath<'a>, Vec<(u8, OsString, SysfsPath<'a>)>>> {
+    let sys_usb = sysfs
+        .get_subsystem("usb")?
+        .ok_or_eyre("No usb subsystem found in sysfs")?;
+    let sys_hid = sysfs
+        .get_subsystem("hid")?
+        .ok_or_eyre("No hid subsystem found in sysfs")?;
+
+    let mut devices: HashMap<SysfsPath, Vec<(u8, OsString, SysfsPath)>> = HashMap::new();
+
+    for dev in sys_usb.devices()? {
+        let (_, dev) = dev?;
+        if dev.property("devnum")?.is_some() {
+            devices.insert(dev, Vec::new());
         }
     }
-    for dev in sysfs::subsystem_devices(&sys_hid)? {
-        let dev = dev.canonicalize()?;
-        if let Some(parent) = dev.ancestors().find(|&p| devices.contains_key(p)) {
-            let Some(interface_num) = sysfs::find_map_parent(&dev, |p| {
-                if sysfs::get_subsystem(p)? != Some("usb".to_owned()) {
+
+    for dev in sys_hid.devices()? {
+        let (name, dev) = dev?;
+
+        if let Some(parent) = dev.find_map_parent(|p| Ok(devices.contains_key(&p).then_some(p)))? {
+            let Some(interface_num) = dev.find_map_parent(|p| {
+                if p.subsystem()? != Some("usb".to_owned()) {
                     return Ok(None);
                 }
-                Ok(sysfs::property_trim(p, "bInterfaceNumber")?
+                Ok(p.property_trim("bInterfaceNumber")?
                     .and_then(|s| u8::from_str_radix(&s, 16).ok()))
             })?
             else {
@@ -365,7 +409,10 @@ fn find_usb_hid() -> Result<HashMap<PathBuf, Vec<(u8, PathBuf)>>> {
                 continue;
             };
 
-            devices.get_mut(parent).unwrap().push((interface_num, dev));
+            devices
+                .get_mut(&parent)
+                .unwrap()
+                .push((interface_num, name, dev));
         }
     }
 

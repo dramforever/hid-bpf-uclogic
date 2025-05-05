@@ -3,8 +3,14 @@
 
   outputs =
     { self, nixpkgs }:
+    let
+      eachSystem = nixpkgs.lib.genAttrs [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+    in
     {
-      devShell = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (
+      devShell = eachSystem (
         system:
         nixpkgs.legacyPackages.${system}.callPackage (
           {
