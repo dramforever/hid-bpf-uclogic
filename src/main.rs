@@ -136,7 +136,7 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
     let usb_hid = find_usb_hid(sysfs)?;
 
     let Some(hids) = usb_hid.get(&device) else {
-        bail!("Device does not seem to be a USB HID device");
+        bail!("Device does not seem to be a relevant USB device.");
     };
 
     if !args.force {
@@ -223,7 +223,7 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
         let orig_rdesc = hid_dev.read("report_descriptor")?;
 
         if orig_rdesc[..3] != [0x06, 0x00, 0xff] {
-            bail!("Found HID device is not what was unexpected.");
+            bail!("Found HID device with unexpected descriptor. Is a driver already loaded?");
         }
     }
 
