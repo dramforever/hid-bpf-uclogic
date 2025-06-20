@@ -16,7 +16,7 @@ Device feature support
 - [X] Stylus (including stylus buttons)
 - [X] Button pad
 - [X] Touch ring/strip (Partial support: Translated to relative wheel)
-- [ ] Dial
+- [X] Dial
 - [ ] Battery information
 
 ## Requirements

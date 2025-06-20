@@ -63,7 +63,7 @@ extern __u8 *hid_bpf_get_data(struct hid_bpf_ctx *ctx,
 
 #define PAD_REPORT_ID 3
 #define VENDOR_REPORT_ID 8
-#define TOUCH_REPORT_ID 0xf0
+#define DIAL_REPORT_ID 0xf0
 
 #define REPORT_SIZE 12
 
@@ -129,6 +129,18 @@ union vendor_report {
 		__u8 position;
 		__u8 _unknown[6];
 	} __attribute__((packed)) touch;
+
+	struct {
+		__u8 report_id;
+		__u8 discriminant;
+		__u8 _unknown_0;
+		__u8 dial_id;
+		__u8 _unknown_2;
+		bool dial_cw : 1;
+		bool dial_ccw : 1;
+		__u8 _unknown_3 : 6;
+		__u8 _unknown[6];
+	} __attribute__((packed)) dial;
 } __attribute__((packed));
 
 union report {
@@ -156,9 +168,10 @@ union report {
 		__u8 x;
 		__u8 y;
 		__u8 _padding_0;
-		__u8 delta;
-		__u8 _padding[6];
-	} __attribute__((packed)) touch;
+		__u8 delta_1;
+		__u8 delta_2;
+		__u8 _padding[5];
+	} __attribute__((packed)) dial;
 } __attribute__((packed));
 
 #define sizeof_member(type, member) \
@@ -168,9 +181,10 @@ union report {
 
 _Static_assert(sizeof_member(union vendor_report, pad) == REPORT_SIZE, "");
 _Static_assert(sizeof_member(union vendor_report, touch) == REPORT_SIZE, "");
+_Static_assert(sizeof_member(union vendor_report, dial) == REPORT_SIZE, "");
 _Static_assert(sizeof_member(union vendor_report, stylus) == REPORT_SIZE, "");
 _Static_assert(sizeof_member(union report, pad) == REPORT_SIZE, "");
-_Static_assert(sizeof_member(union report, touch) == REPORT_SIZE, "");
+_Static_assert(sizeof_member(union report, dial) == REPORT_SIZE, "");
 _Static_assert(sizeof_member(union report, stylus) == REPORT_SIZE, "");
 
 SEC("struct_ops/hid_device_event")
@@ -219,12 +233,24 @@ int uclogic_fix_event(unsigned long long *ctx)
 #define abs(x) ((x) > 0 ? (x) : -(x))
 		bool dir = (touch > last_touch) ^ (abs(touch - last_touch) < 4);
 #undef abs
-		r->touch.delta = dir ? -1 : 1;
+		r->dial.delta_1 = dir ? -1 : 1;
 
-		r->touch.report_id = TOUCH_REPORT_ID;
-		r->touch.btn_stylus = 0;
-		r->touch.x = 0;
-		r->touch.y = 0;
+		r->dial.report_id = DIAL_REPORT_ID;
+		r->dial.btn_stylus = 0;
+		r->dial.x = 0;
+		r->dial.y = 0;
+		r->dial.delta_2 = 0;
+	} else if (v.discriminant == 0xf1) {
+		// Dial event
+		__u8 delta = (__u8)v.dial.dial_cw - (__u8)v.dial.dial_ccw;
+
+		r->dial.delta_1 = v.dial.dial_id == 1 ? delta : 0;
+		r->dial.delta_2 = v.dial.dial_id == 2 ? delta : 0;
+
+		r->dial.report_id = DIAL_REPORT_ID;
+		r->dial.btn_stylus = 0;
+		r->dial.x = 0;
+		r->dial.y = 0;
 	} else {
 		// Stylus event
 		__u32 x = ((__u32)v.stylus.x_high << 16) | v.stylus.x_low;

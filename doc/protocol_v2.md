@@ -190,14 +190,12 @@ Example: Huion HC16 (`256c:0064`)
 
 ## Dial report
 
-TODO
-
 ```c
 struct {
     __u8 report_id;
     __u8 discriminant;
     __u8 _unknown_0;
-    __u8 _unknown_1;
+    __u8 dial_id;
     __u8 _unknown_2;
     bool dial_cw : 1;
     bool dial_ccw : 1;
@@ -211,7 +209,7 @@ The meanings of fields are as follows:
 - `report_id`: `0x08`
 - `discriminant`: `0xf1`
 - `_unknown_0`: possibly some sort of ID?
-- `_unknown_1`: possibly some sort of ID?
+- `dial_id`: Dial identifier, `1` or `2`
 - `_unknown_2`
 - `dial_cw`: Dial turning clockwise
 - `dial_ccw`: Dial turning counter-clockwise
