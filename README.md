@@ -102,6 +102,16 @@ $ sudo rm /sys/fs/bpf/hid-bpf-uclogic-*    # Remove all
 
 (TODO)
 
+## Development tips
+
+Add this to your `.git/config` to have `git diff` show HID report descriptor comparisons:
+
+```
+[diff "hid-rdesc"]
+    textconv = sh -c 'hid-decode \"$1\" | grep -F //' ''
+    cachetextconv = true
+```
+
 ## More information
 
 See `doc/` directory in repository.

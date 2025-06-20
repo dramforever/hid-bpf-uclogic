@@ -22,8 +22,9 @@
             cargo,
             rustfmt,
             rustc,
-            rustPlatform,
             huion-switcher,
+            hid-tools,
+            rustPlatform,
             buildPackages,
           }:
 
@@ -33,6 +34,7 @@
               cargo
               rustfmt
               rustc
+              hid-tools
               buildPackages.llvmPackages.clang-unwrapped
             ];
             buildInputs = [
