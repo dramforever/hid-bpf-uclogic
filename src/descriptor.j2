@@ -92,6 +92,7 @@ a1 00                               {#-   Collection (Physical) #}
 75 08                               {#-     Report Size (8) #}
 81 02                               {#-     Input (Data,Var,Abs) #}
 c0                                  {#-   End Collection #}
+{#- Buttons #}
 05 09                               {#-   Usage Page (Button) #}
 19 01                               {#-   Usage Minimum (1) #}
 29 {{ [num_btns, 10] | min | u8 }}  {#-   Usage Maximum (10) #}
@@ -142,6 +143,7 @@ a1 00                               {#-   Collection (Physical) #}
 81 02                               {#-     Input (Data,Var,Abs) #}
 95 01                               {#-     Report Count (1) #}
 81 01                               {#-     Input (Cnst,Arr,Abs) #}
+{#- Wheels #}
 05 01                               {#-     Usage Page (Generic Desktop) #}
 09 38                               {#-     Usage (Wheel) #}
 95 01                               {#-     Report Count (1) #}
