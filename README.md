@@ -10,6 +10,7 @@ Known working devices:
 
 - Gaomon M7 (`256c:0064`)
 - Huion HC16 (`256c:0064`)
+- Huion Inspiroy Dial 2 (`256c:0060`)
 
 Device feature support
 

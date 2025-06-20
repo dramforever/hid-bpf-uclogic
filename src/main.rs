@@ -17,11 +17,15 @@ static SUPPORTED_VID_PID: &[(u32, u32)] = &[
     // Gaomon M7
     // Huion HC16
     (0x256c, 0x0064),
+
+    // Huion Inspiroy Dial 2
+    (0x256c, 0x0060),
 ];
 
 static SUPPORTED_FIRMWARE: &[&str] = &[
     "GM001_T207_210524", // Gaomon M7
     "HUION_T18C_211220", // Huion HC16
+    "HUION_T216_220819", // Huion Inspiroy Dial 2
 ];
 
 struct Args {
