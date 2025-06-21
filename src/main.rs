@@ -85,7 +85,7 @@ fn main() -> Result<()> {
             Arg::new("force")
                 .long("force")
                 .action(ArgAction::SetTrue)
-                .help("Even on unsupported device"),
+                .help("Bypass some checks while loading"),
         )
         .arg(
             Arg::new("list-devices")
@@ -145,7 +145,7 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
 
     if !args.force {
         if !usb_supported(&device)? {
-            bail!("Device is not supported");
+            bail!("Device is not supported (Use --force to load anyway)");
         }
     }
 
@@ -175,7 +175,7 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
     }
 
     if !args.force && !SUPPORTED_FIRMWARE.contains(&info.firmware.as_str()) {
-        bail!(format!("Unsupported device {:?}", info.firmware));
+        bail!(format!("Unsupported device {:?} (Use --force to load anyway)", info.firmware));
     }
 
     let parsed = info.parse()?;

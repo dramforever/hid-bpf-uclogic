@@ -59,7 +59,7 @@ $ hid-bpf-uclogic --list-devices
   - .2 HID 004E /sys/devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.2/0003:256C:0064.004E
 ```
 
-If your device is not listed, check `hid-bpf-uclogic --list-devices-all` for all USB HID devices. If your device has vendor `256c` (shows `(256c:<something>)`) and/or responds to huion-switcher, it might work. Please [open an issue] and report your experience, if nobody else has already done so.
+If your device is not listed, check `hid-bpf-uclogic --list-devices-all` for all USB HID devices. If your device has vendor `256c` (shows `(256c:<something>)`) and/or responds to huion-switcher, it might work with `--force`. Please [open an issue] and report your experience, if nobody else has already done so.
 
 [open an issue]: https://github.com/dramforever/hid-bpf-uclogic/issues
 
