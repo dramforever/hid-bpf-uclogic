@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["hid-bpf-uclogic"]
+members = ["hid-bpf-uclogic", "hid-bpf-uclogic-test"]
