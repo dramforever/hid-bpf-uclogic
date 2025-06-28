@@ -1,1 +1,1 @@
-src/snapshots/*_desc.snap diff=hid-rdesc
+*_desc.snap diff=hid-rdesc

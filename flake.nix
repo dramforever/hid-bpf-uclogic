@@ -64,7 +64,7 @@
           }:
 
           let
-            cargoToml = with builtins; fromTOML (readFile ./Cargo.toml);
+            cargoToml = with builtins; fromTOML (readFile ./hid-bpf-uclogic/Cargo.toml);
 
           in
           rustPlatform.buildRustPackage {
@@ -72,6 +72,7 @@
             version = cargoToml.package.version;
 
             src = ./.;
+            buildAndTestSubdir = "hid-bpf-uclogic";
 
             cargoLock.lockFile = ./Cargo.lock;
 

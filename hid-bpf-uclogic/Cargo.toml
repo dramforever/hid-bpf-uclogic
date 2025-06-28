@@ -1,0 +1,17 @@
+[package]
+name = "hid-bpf-uclogic"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.37", default-features = false, features = ["help", "suggestions", "usage", "std"] }
+eyre = "0.6.12"
+hex = "0.4.3"
+libbpf-rs = "0.24.8"
+libc = "0.2.172"
+minijinja = "2.9.0"
+openat = "0.1.21"
+serde = { version = "1.0.219", features = ["serde_derive"] }
+
+[dev-dependencies]
+insta = { version = "1.43.1", default-features = false }
