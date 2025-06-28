@@ -17,7 +17,6 @@ static SUPPORTED_VID_PID: &[(u32, u32)] = &[
     // Gaomon M7
     // Huion HC16
     (0x256c, 0x0064),
-
     // Huion Inspiroy Dial 2
     (0x256c, 0x0060),
 ];
@@ -175,7 +174,10 @@ fn load(sysfs: &SysfsPath, args: &Args) -> Result<()> {
     }
 
     if !args.force && !SUPPORTED_FIRMWARE.contains(&info.firmware.as_str()) {
-        bail!(format!("Unsupported device {:?} (Use --force to load anyway)", info.firmware));
+        bail!(format!(
+            "Unsupported device {:?} (Use --force to load anyway)",
+            info.firmware
+        ));
     }
 
     let parsed = info.parse()?;
