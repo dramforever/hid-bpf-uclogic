@@ -121,28 +121,58 @@ impl Display for ParsedDeviceInfo {
     }
 }
 
-#[test]
-fn descriptor_test() {
-    let dev = ParsedDeviceInfo {
-        x_max: 50800,
-        y_max: 31750,
-        pres_max: 8191,
-        resolution: 5080,
-        num_btns: 13,
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    insta::assert_binary_snapshot!(".bin", dev.descriptor().unwrap());
-}
+    /// Format descriptor hexdump into what hid-decode expects
+    ///
+    /// ```text
+    /// R: {decimal length} {hexdump}
+    /// ```
+    ///
+    /// For example
+    ///
+    /// ```text
+    /// R: 5 aa bb 00 12 34
+    /// ```
+    fn descriptor_dump(bytes: &[u8]) -> String {
+        let byte_hex = |b: u8| -> [u8; 3] {
+            const HEX: [u8; 16] = *b"0123456789abcdef";
+            [b' ', HEX[(b >> 4) as usize], HEX[(b & 0xf) as usize]]
+        };
+        let hexdump: Vec<u8> = bytes.iter().copied().flat_map(byte_hex).collect();
+        let hexdump = String::from_utf8(hexdump).unwrap();
 
-#[test]
-fn descriptor_test_less_buttons() {
-    let dev = ParsedDeviceInfo {
-        x_max: 50800,
-        y_max: 31750,
-        pres_max: 8191,
-        resolution: 5080,
-        num_btns: 5,
-    };
+        format!("R: {}{}", bytes.len(), hexdump)
+    }
 
-    insta::assert_binary_snapshot!(".bin", dev.descriptor().unwrap());
+    #[test]
+    fn test_desc() {
+        let dev = ParsedDeviceInfo {
+            x_max: 50800,
+            y_max: 31750,
+            pres_max: 8191,
+            resolution: 5080,
+            num_btns: 13,
+        };
+
+        let desc = dev.descriptor().unwrap();
+
+        insta::assert_snapshot!(descriptor_dump(&desc));
+    }
+
+    #[test]
+    fn test_less_buttons_desc() {
+        let dev = ParsedDeviceInfo {
+            x_max: 50800,
+            y_max: 31750,
+            pres_max: 8191,
+            resolution: 5080,
+            num_btns: 5,
+        };
+
+        let desc = dev.descriptor().unwrap();
+        insta::assert_snapshot!(descriptor_dump(&desc));
+    }
 }

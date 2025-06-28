@@ -1,1 +1,1 @@
-src/snapshots/*.bin diff=hid-rdesc
+src/snapshots/*_desc.snap diff=hid-rdesc

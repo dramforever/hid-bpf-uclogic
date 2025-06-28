@@ -1,6 +1,0 @@
----
-source: src/descriptor.rs
-expression: dev.descriptor().unwrap()
-extension: bin
-snapshot_kind: binary
----
