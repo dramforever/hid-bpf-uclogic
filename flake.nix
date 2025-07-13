@@ -8,110 +8,36 @@
         "x86_64-linux"
         "aarch64-linux"
       ];
-    in
-    {
-      devShell = eachSystem (
+      pkgs = eachSystem (
         system:
-        nixpkgs.legacyPackages.${system}.callPackage (
-          {
-            mkShell,
-            zlib,
-            elfutils,
-            libbpf,
-            pkg-config,
-            cargo,
-            rustfmt,
-            rustc,
-            huion-switcher,
-            hid-tools,
-            rustPlatform,
-            buildPackages,
-          }:
-
-          mkShell {
-            nativeBuildInputs = [
-              pkg-config
-              cargo
-              rustfmt
-              rustc
-              hid-tools
-              buildPackages.llvmPackages.clang-unwrapped
-            ];
-            buildInputs = [
-              zlib
-              elfutils
-              libbpf
-              huion-switcher
-            ];
-
-            RUST_SRC_PATH = rustPlatform.rustLibSrc;
-          }
-        ) { }
-      );
-
-      overlays.default = final: prev: {
-        hid-bpf-uclogic = final.callPackage (
-          {
-            lib,
-            rustPlatform,
-            zlib,
-            elfutils,
-            libbpf,
-            pkg-config,
-            makeWrapper,
-            buildPackages,
-            huion-switcher,
-          }:
-
-          let
-            cargoToml = with builtins; fromTOML (readFile ./hid-bpf-uclogic/Cargo.toml);
-
-          in
-          rustPlatform.buildRustPackage {
-            pname = cargoToml.package.name;
-            version = cargoToml.package.version;
-
-            src = ./.;
-            buildAndTestSubdir = "hid-bpf-uclogic";
-
-            cargoLock.lockFile = ./Cargo.lock;
-
-            nativeBuildInputs = [
-              pkg-config
-              makeWrapper
-              buildPackages.llvmPackages.clang-unwrapped
-            ];
-
-            buildInputs = [
-              zlib
-              elfutils
-              libbpf
-            ];
-
-            doCheck = false;
-
-            postInstall = ''
-              wrapProgram "$out/bin/"* \
-                --set PATH ${lib.makeBinPath [ huion-switcher ]}
-            '';
-
-            meta.mainProgram = "hid-bpf-uclogic";
-          }
-        ) { };
-      };
-
-      packages = eachSystem (
-        system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ self.overlays.default ];
-          };
-        in
-        {
-          inherit (pkgs) hid-bpf-uclogic;
-          default = pkgs.hid-bpf-uclogic;
+        import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
         }
       );
+    in
+    {
+      devShells = eachSystem (system: {
+        default = nixpkgs.legacyPackages.${system}.callPackage ./nix/dev.nix { };
+      });
+
+      overlays.default = final: prev: {
+        hid-bpf-uclogic = final.callPackage ./nix/package.nix { };
+      };
+
+      packages = eachSystem (system: {
+        default = pkgs.${system}.hid-bpf-uclogic;
+      });
+
+      checks = eachSystem (system: {
+        hid-bpf-uclogic = self.packages.${system}.default;
+        hid-bpf-uclogic-test = self.packages.${system}.default.overrideAttrs {
+          pname = "hid-bpf-uclogic-test";
+          dontBuild = true;
+          doCheck = true;
+          installPhase = "touch $out";
+          buildAndTestSubdir = "hid-bpf-uclogic-test";
+        };
+      });
     };
 }
