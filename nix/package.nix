@@ -35,7 +35,7 @@ rustPlatform.buildRustPackage {
     libbpf
   ];
 
-  doCheck = false;
+  doCheck = true;
 
   postInstall = ''
     wrapProgram "$out/bin/"* \

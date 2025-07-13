@@ -34,7 +34,6 @@
         hid-bpf-uclogic-test = self.packages.${system}.default.overrideAttrs {
           pname = "hid-bpf-uclogic-test";
           dontBuild = true;
-          doCheck = true;
           installPhase = "touch $out";
           buildAndTestSubdir = "hid-bpf-uclogic-test";
         };
