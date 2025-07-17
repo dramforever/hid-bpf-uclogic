@@ -1,8 +1,6 @@
 ---
 source: hid-bpf-uclogic-test/src/lib.rs
-expression: run_reports(&reports)
+expression: format_reports(& run_reports(& reports))
 ---
-[
-    Report([08, 81, 03, 00, 00, 64, 09, 00, 21, 03, 00, 00]),
-    Report([08, 81, e0, 03, 00, 8b, 0d, 00, ff, 1f, 00, 00]),
-]
+E: 000000.000000 12 08 81 03 00 00 64 09 00 21 03 00 00
+E: 000000.000000 12 08 81 e0 03 00 8b 0d 00 ff 1f 00 00
